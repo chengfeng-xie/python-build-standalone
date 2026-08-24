@@ -1539,6 +1539,12 @@ def build_cpython(
                 SUPPORT / "patch-python-der-eof-parsing.patch",
             )
 
+        if python_version == "3.14":
+            apply_source_patch(
+                cpython_source_path,
+                SUPPORT / "patch-python-bugfix-long-paths.patch",
+            )
+
         out_dir = td / "out"
 
         build_dir = out_dir / "python" / "build"
