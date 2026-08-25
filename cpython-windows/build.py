@@ -1539,7 +1539,7 @@ def build_cpython(
                 SUPPORT / "patch-python-der-eof-parsing.patch",
             )
 
-        if python_version == "3.14":
+        if meets_python_minimum_version(python_version, "3.14"):
             apply_source_patch(
                 cpython_source_path,
                 SUPPORT / "patch-python-bugfix-long-paths.patch",

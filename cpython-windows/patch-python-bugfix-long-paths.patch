@@ -1,21 +1,20 @@
 diff --git a/Python/dynload_win.c b/Python/dynload_win.c
-index 6324063401e..1369e1023c9 100644
+index 6324063401e..b45168f229f 100644
 --- a/Python/dynload_win.c
 +++ b/Python/dynload_win.c
-@@ -10,6 +10,12 @@
+@@ -10,6 +10,11 @@
  #include "patchlevel.h"           // PY_MAJOR_VERSION
  #include <windows.h>
  
 +#include <assert.h>
 +#include <stdint.h>
-+#include <stdio.h>
 +#include <string.h>
 +#include <wchar.h>
 +
  const char *_PyImport_DynLoadFiletab[] = {
      PYD_TAGGED_SUFFIX,
      PYD_UNTAGGED_SUFFIX,
-@@ -145,6 +151,41 @@ static char *GetPythonImport (HINSTANCE hModule)
+@@ -145,6 +150,41 @@ static char *GetPythonImport (HINSTANCE hModule)
      return NULL;
  }
  
@@ -57,7 +56,7 @@ index 6324063401e..1369e1023c9 100644
  #ifdef Py_ENABLE_SHARED
  /* Load python3.dll before loading any extension module that might refer
     to it. That way, we can be sure that always the python3.dll corresponding
-@@ -171,7 +212,7 @@ _Py_CheckPython3(void)
+@@ -171,7 +211,7 @@ _Py_CheckPython3(void)
          wchar_t *p = wcsrchr(py3path, L'\\');
          if (p) {
              wcscpy(p + 1, PY3_DLLNAME);
@@ -66,7 +65,7 @@ index 6324063401e..1369e1023c9 100644
              if (hPython3 != NULL) {
                  return 1;
              }
-@@ -193,7 +234,7 @@ _Py_CheckPython3(void)
+@@ -193,7 +233,7 @@ _Py_CheckPython3(void)
      if (config->prefix) {
          wcscpy_s(py3path, MAXPATHLEN, config->prefix);
          if (py3path[0] && _Py_add_relfile(py3path, L"DLLs\\" PY3_DLLNAME, MAXPATHLEN) >= 0) {
@@ -75,7 +74,7 @@ index 6324063401e..1369e1023c9 100644
          }
      }
      return hPython3 != NULL;
-@@ -231,11 +272,9 @@ dl_funcptr _PyImport_FindSharedFuncptrWindows(const char *prefix,
+@@ -231,11 +271,9 @@ dl_funcptr _PyImport_FindSharedFuncptrWindows(const char *prefix,
             to avoid DLL preloading attacks and enable use of the
             AddDllDirectory function. We add SEARCH_DLL_LOAD_DIR to
             ensure DLLs adjacent to the PYD are preferred. */
