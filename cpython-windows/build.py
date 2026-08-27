@@ -310,6 +310,29 @@ def static_replace_in_file(p: pathlib.Path, search, replace):
     with p.open("wb") as fh:
         fh.write(data)
 
+def apply_source_patch(cpython_source_path: pathlib.Path, patch_path: pathlib.Path):
+    with patch_path.open("rb") as fh:
+        patch = fh.read().replace(b"\r\n", b"\n")
+
+    with tempfile.NamedTemporaryFile("wb", delete=False) as fh:
+        fh.write(patch)
+        normalized_patch = pathlib.Path(fh.name)
+
+    try:
+        subprocess.run(
+            [
+                "git.exe",
+                "-C",
+                str(cpython_source_path),
+                "apply",
+                "--whitespace=nowarn",
+                str(normalized_patch),
+            ],
+            check=True,
+        )
+    finally:
+        normalized_patch.unlink()
+
 
 OPENSSL_PROPS_REMOVE_RULES_LEGACY = b"""
   <ItemGroup>
@@ -1476,6 +1499,12 @@ def build_cpython(
 
         cpython_source_path = td / ("Python-%s" % python_version)
         pcbuild_path = cpython_source_path / "PCbuild"
+
+        if meets_python_minimum_version(python_version, "3.14"):
+            apply_source_patch(
+                cpython_source_path,
+                SUPPORT / "patch-python-bugfix-long-paths.patch",
+            )
 
         out_dir = td / "out"
 

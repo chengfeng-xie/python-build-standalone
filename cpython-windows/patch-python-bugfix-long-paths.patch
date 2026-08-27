@@ -1,0 +1,91 @@
+diff --git a/Python/dynload_win.c b/Python/dynload_win.c
+index 6324063401e..b45168f229f 100644
+--- a/Python/dynload_win.c
++++ b/Python/dynload_win.c
+@@ -10,6 +10,11 @@
+ #include "patchlevel.h"           // PY_MAJOR_VERSION
+ #include <windows.h>
+ 
++#include <assert.h>
++#include <stdint.h>
++#include <string.h>
++#include <wchar.h>
++
+ const char *_PyImport_DynLoadFiletab[] = {
+     PYD_TAGGED_SUFFIX,
+     PYD_UNTAGGED_SUFFIX,
+@@ -145,6 +150,41 @@ static char *GetPythonImport (HINSTANCE hModule)
+     return NULL;
+ }
+ 
++static HMODULE
++_Py_LoadLibraryExW(LPCWSTR path, HANDLE file, DWORD flags) {
++    assert(path != NULL);
++    assert(wcschr(path, L'/') == NULL);
++    assert(file == NULL);
++    do {
++        if (_Py_isabs(path) == 0) {
++            break;
++        }
++        if (path[0] == L'\\') {
++            // Exclude UNC or device paths.
++            break;
++        }
++        static const wchar_t prefix[] = L"\\\\?\\";
++        static const size_t prefix_size =
++                sizeof(prefix) / sizeof(prefix[0]) - 1;
++        const size_t path_size = wcslen(path);
++        assert(path_size <= SIZE_MAX - prefix_size - 1);
++        wchar_t *const extended_path =
++                PyMem_New(wchar_t, prefix_size + path_size + 1);
++        if (extended_path == NULL) {
++            break;
++        }
++        memcpy(extended_path, prefix, prefix_size * sizeof(wchar_t));
++        _Py_normpath(memcpy(extended_path + prefix_size,
++                            path,
++                            (path_size + 1) * sizeof(wchar_t)),
++                     path_size);
++        const HMODULE module = LoadLibraryExW(extended_path, file, flags);
++        PyMem_Del(extended_path);
++        return module;
++    } while (0);
++    return LoadLibraryExW(path, file, flags);
++}
++
+ #ifdef Py_ENABLE_SHARED
+ /* Load python3.dll before loading any extension module that might refer
+    to it. That way, we can be sure that always the python3.dll corresponding
+@@ -171,7 +211,7 @@ _Py_CheckPython3(void)
+         wchar_t *p = wcsrchr(py3path, L'\\');
+         if (p) {
+             wcscpy(p + 1, PY3_DLLNAME);
+-            hPython3 = LoadLibraryExW(py3path, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
++            hPython3 = _Py_LoadLibraryExW(py3path, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+             if (hPython3 != NULL) {
+                 return 1;
+             }
+@@ -193,7 +233,7 @@ _Py_CheckPython3(void)
+     if (config->prefix) {
+         wcscpy_s(py3path, MAXPATHLEN, config->prefix);
+         if (py3path[0] && _Py_add_relfile(py3path, L"DLLs\\" PY3_DLLNAME, MAXPATHLEN) >= 0) {
+-            hPython3 = LoadLibraryExW(py3path, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
++            hPython3 = _Py_LoadLibraryExW(py3path, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+         }
+     }
+     return hPython3 != NULL;
+@@ -231,11 +271,9 @@ dl_funcptr _PyImport_FindSharedFuncptrWindows(const char *prefix,
+            to avoid DLL preloading attacks and enable use of the
+            AddDllDirectory function. We add SEARCH_DLL_LOAD_DIR to
+            ensure DLLs adjacent to the PYD are preferred. */
+-        Py_BEGIN_ALLOW_THREADS
+-        hDLL = LoadLibraryExW(wpathname, NULL,
+-                              LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+-                              LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+-        Py_END_ALLOW_THREADS
++        hDLL = _Py_LoadLibraryExW(wpathname, NULL,
++                                  LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
++                                  LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+         PyMem_Free(wpathname);
+ 
+ #ifdef MS_WINDOWS_DESKTOP
